@@ -22,7 +22,8 @@ class Config:
     OPENAI_MAX_TOKENS = int(os.getenv("OPENAI_MAX_TOKENS", "1500"))
     OPENAI_TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.7"))
     
-    # Database
+    # Database - supports both individual vars and Railway's DATABASE_URL
+    DATABASE_URL_ENV = os.getenv("DATABASE_URL", "")  # Railway provides this
     DB_HOST = os.getenv("DB_HOST", "localhost")
     DB_PORT = int(os.getenv("DB_PORT", "5432"))
     DB_NAME = os.getenv("DB_NAME", "ai_psycholog")
@@ -32,6 +33,9 @@ class Config:
     @property
     def DATABASE_URL(self) -> str:
         """Build PostgreSQL connection URL."""
+        # Use Railway's DATABASE_URL if available, otherwise build from components
+        if self.DATABASE_URL_ENV:
+            return self.DATABASE_URL_ENV
         return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
     
     # Application Settings

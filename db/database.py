@@ -16,17 +16,27 @@ class Database:
     async def connect(self):
         """Create database connection pool."""
         try:
-            self.pool = await asyncpg.create_pool(
-                host=config.DB_HOST,
-                port=config.DB_PORT,
-                database=config.DB_NAME,
-                user=config.DB_USER,
-                password=config.DB_PASSWORD,
-                min_size=5,
-                max_size=20,
-                command_timeout=60
-            )
-            logger.info(f"Database pool created: {config.DB_NAME}@{config.DB_HOST}")
+            # Use DATABASE_URL if available (Railway), otherwise use individual params
+            if config.DATABASE_URL_ENV:
+                self.pool = await asyncpg.create_pool(
+                    dsn=config.DATABASE_URL,
+                    min_size=5,
+                    max_size=20,
+                    command_timeout=60
+                )
+                logger.info(f"Database pool created using DATABASE_URL")
+            else:
+                self.pool = await asyncpg.create_pool(
+                    host=config.DB_HOST,
+                    port=config.DB_PORT,
+                    database=config.DB_NAME,
+                    user=config.DB_USER,
+                    password=config.DB_PASSWORD,
+                    min_size=5,
+                    max_size=20,
+                    command_timeout=60
+                )
+                logger.info(f"Database pool created: {config.DB_NAME}@{config.DB_HOST}")
         except Exception as e:
             logger.error(f"Failed to connect to database: {e}")
             raise

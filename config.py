@@ -62,8 +62,9 @@ class Config:
         if not self.OPENAI_API_KEY:
             missing.append("OPENAI_API_KEY")
         
-        if not self.DB_PASSWORD:
-            missing.append("DB_PASSWORD")
+        # Database: require either DATABASE_URL (Railway) or DB_PASSWORD (local)
+        if not self.DATABASE_URL_ENV and not self.DB_PASSWORD:
+            missing.append("DB_PASSWORD or DATABASE_URL")
         
         # Check prompt files exist
         for attr_name in ["SYSTEM_PROMPT_FILE", "CRISIS_PROMPT_FILE", "DETECTOR_PROMPT_FILE",

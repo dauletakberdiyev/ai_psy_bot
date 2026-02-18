@@ -5,6 +5,7 @@ from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     filters
 )
 
@@ -15,7 +16,8 @@ from handlers.commands import (
     help_command,
     newsession_command,
     settings_command,
-    stats_command
+    stats_command,
+    button_callback
 )
 from handlers.conversation import handle_message, handle_error
 from utils.logger import logger
@@ -25,6 +27,8 @@ async def post_init(application: Application):
     """Run after bot initialization."""
     # Connect to database in the bot's event loop
     await db.connect()
+    # Remove command menu from Telegram UI
+    await application.bot.delete_my_commands()
     logger.info("Bot initialized successfully")
 
 
@@ -70,6 +74,9 @@ def main():
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )
+    
+    # Add callback query handler for inline buttons
+    application.add_handler(CallbackQueryHandler(button_callback))
     
     # Add error handler
     application.add_error_handler(handle_error)

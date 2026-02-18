@@ -1,5 +1,5 @@
 """Command handlers for Telegram bot."""
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from uuid import UUID
 
@@ -8,6 +8,17 @@ from db.models import (
     UsageLimitRepository
 )
 from utils.logger import logger
+
+
+def get_main_menu_keyboard() -> InlineKeyboardMarkup:
+    """Build the main menu inline keyboard."""
+    keyboard = [
+        [InlineKeyboardButton("🔄 Новая сессия", callback_data="newsession")],
+        [InlineKeyboardButton("⚙️ Настройки", callback_data="settings"),
+         InlineKeyboardButton("📊 Статистика", callback_data="stats")],
+        [InlineKeyboardButton("📖 Помощь", callback_data="help")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -53,15 +64,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• Научиться замечать когнитивные искажения\n"
             "• Выбирать более полезные действия\n\n"
             "⚠️ Важно: я не врач и не психотерапевт. Я не ставлю диагнозы и не заменяю очную терапию.\n\n"
-            "Просто напиши мне, что тебя беспокоит, и я постараюсь помочь.\n\n"
-            "Команды:\n"
-            "/newsession - начать новую сессию\n"
-            "/settings - настройки\n"
-            "/stats - статистика использования\n"
-            "/help - помощь"
+            "Просто напиши мне, что тебя беспокоит, и я постараюсь помочь."
         )
         
-        await update.message.reply_text(welcome_text)
+        await update.message.reply_text(
+            welcome_text,
+            reply_markup=get_main_menu_keyboard()
+        )
         logger.info(f"User {user.id} started the bot")
         
     except Exception as e:
@@ -76,30 +85,39 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
         "📖 *Как пользоваться ботом*\n\n"
         "Просто напиши мне, что тебя беспокоит, и я помогу разобраться.\n\n"
-        "*Команды:*\n"
-        "/start - начать работу с ботом\n"
-        "/newsession - архивировать текущую сессию и начать новую\n"
-        "/settings - изменить настройки (стиль общения, длина ответов)\n"
-        "/stats - посмотреть статистику использования\n"
-        "/help - показать это сообщение\n\n"
         "*Лимиты:*\n"
         "Бесплатно: 20 сообщений в день\n\n"
         "*Важно помнить:*\n"
         "• Я не врач и не психотерапевт\n"
         "• Я не ставлю диагнозы\n"
         "• В экстренной ситуации обратитесь к специалистам\n\n"
-        "Если у тебя есть вопросы, просто спроси!"
+        "Используй кнопки ниже для навигации:"
     )
     
-    await update.message.reply_text(help_text, parse_mode='Markdown')
+    # Support both regular messages and callback queries
+    message = update.message or update.callback_query.message
+    if update.callback_query:
+        await update.callback_query.answer()
+        await message.reply_text(
+            help_text,
+            parse_mode='Markdown',
+            reply_markup=get_main_menu_keyboard()
+        )
+    else:
+        await message.reply_text(
+            help_text,
+            parse_mode='Markdown',
+            reply_markup=get_main_menu_keyboard()
+        )
 
 
 async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /newsession command - archive current session and create new one."""
+    message = update.message or update.callback_query.message
     try:
         user_id_str = context.user_data.get('user_id')
         if not user_id_str:
-            await update.message.reply_text(
+            await message.reply_text(
                 "Сначала используй /start для регистрации."
             )
             return
@@ -115,7 +133,7 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         new_session = await SessionRepository.create(user_id)
         context.user_data['session_id'] = str(new_session['id'])
         
-        await update.message.reply_text(
+        await message.reply_text(
             "✅ Новая сессия начата!\n\n"
             "Предыдущая сессия архивирована. "
             "Расскажи, что тебя беспокоит сейчас?"
@@ -124,17 +142,18 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
     except Exception as e:
         logger.error(f"Error in newsession_command: {e}")
-        await update.message.reply_text(
+        await message.reply_text(
             "Произошла ошибка. Попробуйте позже."
         )
 
 
 async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /settings command - show current settings."""
+    message = update.message or update.callback_query.message
     try:
         user_id_str = context.user_data.get('user_id')
         if not user_id_str:
-            await update.message.reply_text(
+            await message.reply_text(
                 "Сначала используй /start для регистрации."
             )
             return
@@ -143,7 +162,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         settings = await UserSettingsRepository.get(user_id)
         
         if not settings:
-            await update.message.reply_text("Настройки не найдены.")
+            await message.reply_text("Настройки не найдены.")
             return
         
         settings_text = (
@@ -155,19 +174,20 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Для изменения настроек напишите мне, и я помогу."
         )
         
-        await update.message.reply_text(settings_text, parse_mode='Markdown')
+        await message.reply_text(settings_text, parse_mode='Markdown')
         
     except Exception as e:
         logger.error(f"Error in settings_command: {e}")
-        await update.message.reply_text("Произошла ошибка при загрузке настроек.")
+        await message.reply_text("Произошла ошибка при загрузке настроек.")
 
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /stats command - show usage statistics."""
+    message = update.message or update.callback_query.message
     try:
         user_id_str = context.user_data.get('user_id')
         if not user_id_str:
-            await update.message.reply_text(
+            await message.reply_text(
                 "Сначала используй /start для регистрации."
             )
             return
@@ -189,8 +209,27 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if session:
             stats_text += f"Текущая сессия начата: {session['started_at'].strftime('%d.%m.%Y %H:%M')}\n"
         
-        await update.message.reply_text(stats_text, parse_mode='Markdown')
+        await message.reply_text(stats_text, parse_mode='Markdown')
         
     except Exception as e:
         logger.error(f"Error in stats_command: {e}")
-        await update.message.reply_text("Произошла ошибка при загрузке статистики.")
+        await message.reply_text("Произошла ошибка при загрузке статистики.")
+
+
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle inline keyboard button presses."""
+    query = update.callback_query
+    data = query.data
+    
+    if data == "newsession":
+        await query.answer()
+        # Reuse logic but adapt for callback query
+        await newsession_command(update, context)
+    elif data == "settings":
+        await query.answer()
+        await settings_command(update, context)
+    elif data == "stats":
+        await query.answer()
+        await stats_command(update, context)
+    elif data == "help":
+        await help_command(update, context)

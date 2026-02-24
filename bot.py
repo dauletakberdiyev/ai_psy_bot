@@ -5,7 +5,6 @@ from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
-    CallbackQueryHandler,
     filters
 )
 
@@ -17,7 +16,10 @@ from handlers.commands import (
     newsession_command,
     settings_command,
     stats_command,
-    button_callback
+    BTN_NEW_SESSION,
+    BTN_SETTINGS,
+    BTN_STATS,
+    BTN_HELP
 )
 from handlers.conversation import handle_message, handle_error
 from utils.logger import logger
@@ -25,9 +27,8 @@ from utils.logger import logger
 
 async def post_init(application: Application):
     """Run after bot initialization."""
-    # Connect to database in the bot's event loop
     await db.connect()
-    # Remove command menu from Telegram UI
+    # Remove the slash-command menu from the Telegram UI
     await application.bot.delete_my_commands()
     logger.info("Bot initialized successfully")
 
@@ -40,7 +41,6 @@ async def post_shutdown(application: Application):
 
 def main():
     """Main entry point for the bot."""
-    # Validate configuration
     missing_config = config.validate()
     if missing_config:
         logger.error(f"Missing required configuration: {', '.join(missing_config)}")
@@ -50,11 +50,10 @@ def main():
             print(f"  - {item}")
         print("\nPlease create a .env file based on .env.example and fill in the required values.")
         return
-    
+
     logger.info("Starting AI Psychologist Telegram Bot...")
     logger.info(f"Using model: {config.OPENAI_MODEL}")
-    
-    # Create application
+
     application = (
         Application.builder()
         .token(config.TELEGRAM_BOT_TOKEN)
@@ -62,26 +61,27 @@ def main():
         .post_shutdown(post_shutdown)
         .build()
     )
-    
-    # Add command handlers
+
+    # Slash command handlers
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("newsession", newsession_command))
     application.add_handler(CommandHandler("settings", settings_command))
     application.add_handler(CommandHandler("stats", stats_command))
-    
-    # Add message handler
+
+    # Reply keyboard button handlers — must be registered BEFORE the generic handler
+    application.add_handler(MessageHandler(filters.Text([BTN_NEW_SESSION]), newsession_command))
+    application.add_handler(MessageHandler(filters.Text([BTN_SETTINGS]), settings_command))
+    application.add_handler(MessageHandler(filters.Text([BTN_STATS]), stats_command))
+    application.add_handler(MessageHandler(filters.Text([BTN_HELP]), help_command))
+
+    # Generic message handler for normal conversation
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )
-    
-    # Add callback query handler for inline buttons
-    application.add_handler(CallbackQueryHandler(button_callback))
-    
-    # Add error handler
+
     application.add_error_handler(handle_error)
-    
-    # Run bot
+
     logger.info("Bot is running... Press Ctrl+C to stop.")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 

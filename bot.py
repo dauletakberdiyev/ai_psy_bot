@@ -3,6 +3,7 @@ import asyncio
 from telegram import Update
 from telegram.ext import (
     Application,
+    CallbackQueryHandler,
     CommandHandler,
     MessageHandler,
     filters
@@ -16,12 +17,13 @@ from handlers.commands import (
     newsession_command,
     settings_command,
     stats_command,
-    BTN_NEW_SESSION,
-    BTN_SETTINGS,
-    BTN_STATS,
-    BTN_HELP
+    ALL_BTN_NEW_SESSION,
+    ALL_BTN_SETTINGS,
+    ALL_BTN_STATS,
+    ALL_BTN_HELP,
 )
 from handlers.conversation import handle_message, handle_error
+from handlers.language import language_command, handle_language_callback
 from utils.logger import logger
 
 
@@ -68,12 +70,17 @@ def main():
     application.add_handler(CommandHandler("newsession", newsession_command))
     application.add_handler(CommandHandler("settings", settings_command))
     application.add_handler(CommandHandler("stats", stats_command))
+    application.add_handler(CommandHandler("language", language_command))
 
-    # Reply keyboard button handlers — must be registered BEFORE the generic handler
-    application.add_handler(MessageHandler(filters.Text([BTN_NEW_SESSION]), newsession_command))
-    application.add_handler(MessageHandler(filters.Text([BTN_SETTINGS]), settings_command))
-    application.add_handler(MessageHandler(filters.Text([BTN_STATS]), stats_command))
-    application.add_handler(MessageHandler(filters.Text([BTN_HELP]), help_command))
+    # Inline keyboard callbacks (language selection)
+    application.add_handler(CallbackQueryHandler(handle_language_callback, pattern=r'^lang:'))
+
+    # Reply keyboard button handlers for ALL three language variants of each button
+    # Must be registered BEFORE the generic message handler
+    application.add_handler(MessageHandler(filters.Text(ALL_BTN_NEW_SESSION), newsession_command))
+    application.add_handler(MessageHandler(filters.Text(ALL_BTN_SETTINGS),    settings_command))
+    application.add_handler(MessageHandler(filters.Text(ALL_BTN_STATS),       stats_command))
+    application.add_handler(MessageHandler(filters.Text(ALL_BTN_HELP),        help_command))
 
     # Generic message handler for normal conversation
     application.add_handler(

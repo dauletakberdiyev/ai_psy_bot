@@ -77,7 +77,7 @@ class UserSettingsRepository:
     @staticmethod
     async def update(user_id: UUID, **kwargs) -> Dict[str, Any]:
         """Update user settings."""
-        valid_fields = ['preferred_style', 'response_length', 'allow_memory', 'allow_sensitive_topics']
+        valid_fields = ['preferred_style', 'response_length', 'allow_memory', 'allow_sensitive_topics', 'language']
         updates = {k: v for k, v in kwargs.items() if k in valid_fields}
         
         if not updates:
@@ -88,6 +88,19 @@ class UserSettingsRepository:
         
         row = await db.fetchrow(query, user_id, *updates.values())
         return dict(row)
+    
+    @staticmethod
+    async def get_user_language(user_id: UUID) -> str:
+        """Return the user's chosen language code, defaulting to 'ru'."""
+        settings = await UserSettingsRepository.get(user_id)
+        if settings:
+            return settings.get('language', 'ru') or 'ru'
+        return 'ru'
+
+    @staticmethod
+    async def set_user_language(user_id: UUID, lang: str) -> None:
+        """Persist the user's chosen language code."""
+        await UserSettingsRepository.update(user_id, language=lang)
 
 
 class SessionRepository:

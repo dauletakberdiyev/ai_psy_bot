@@ -22,6 +22,8 @@ CREATE TABLE user_settings (
     -- short | medium | long
     allow_memory BOOLEAN NOT NULL DEFAULT TRUE,
     allow_sensitive_topics BOOLEAN NOT NULL DEFAULT TRUE,
+    language TEXT NOT NULL DEFAULT 'ru',
+    -- ru | kz | en
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
